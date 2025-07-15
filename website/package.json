@@ -1,11 +1,11 @@
 {
   "name": "beingbulls-website",
   "version": "1.0.0",
-  "description": "Frontend for BeingBulls real-time stock pattern recognition",
+  "private": true,
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "serve": "vite preview"
   },
   "dependencies": {
     "react": "^18.2.0",
@@ -13,10 +13,10 @@
     "react-router-dom": "^6.20.1"
   },
   "devDependencies": {
-    "vite": "^5.2.0",
     "@vitejs/plugin-react": "^4.2.1",
     "autoprefixer": "^10.4.19",
     "postcss": "^8.4.38",
-    "tailwindcss": "^3.4.3"
+    "tailwindcss": "^3.4.3",
+    "vite": "^5.2.0"
   }
 }
