@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Request, HTTPException
 from config import RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET
 from datetime import datetime, timedelta
-from database.mongo import get_db
+from database.mongo import scans, users, feedbacks
+
 import razorpay
 import hmac
 import hashlib
