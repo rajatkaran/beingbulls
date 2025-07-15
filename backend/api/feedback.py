@@ -1,5 +1,6 @@
 from fastapi import APIRouter
-from database.mongo import get_db
+from database.mongo import scans, users, feedbacks
+
 from pydantic import BaseModel, EmailStr
 from datetime import datetime
 
