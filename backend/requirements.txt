@@ -9,3 +9,4 @@ pydantic[email]
 httpx
 python-jose[cryptography]
 razorpay
+setuptools
