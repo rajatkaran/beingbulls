@@ -1,0 +1,11 @@
+fastapi
+uvicorn
+pymongo
+motor
+python-dotenv
+python-multipart
+email-validator
+pydantic[email]
+httpx
+python-jose[cryptography]
+razorpay

@@ -1,0 +1,118 @@
+body {
+  margin: 0;
+  font-family: 'Inter', 'Plus Jakarta Sans', 'Segoe UI', system-ui, sans-serif;
+  background: linear-gradient(135deg, #e0f7fa, #f0faff);
+  color: #222;
+  height: 100vh;
+  box-sizing: border-box;
+  overflow-x: hidden;
+  padding: 0;
+}
+
+
+.container {
+  width: 100%;
+  max-width: 960px;
+  margin: 40px auto;
+  background: rgba(255, 255, 255, 0.25);
+  border-radius: 20px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+  backdrop-filter: blur(10px);
+  padding: 30px;
+  box-sizing: border-box;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  transition: 0.3s ease;
+}
+
+h2, h3 {
+  text-align: center;
+  color: #00796b;
+}
+
+input {
+  padding: 10px;
+  font-size: 14px;
+  border: none;
+  border-radius: 10px;
+  margin-top: 10px;
+  width: 100%;
+  box-sizing: border-box;
+  background: rgba(255, 255, 255, 0.9);
+}
+
+button {
+  background: #00bcd4;
+  border: none;
+  border-radius: 10px;
+  color: white;
+  padding: 10px 15px;
+  font-size: 16px;
+  cursor: pointer;
+  font-weight: 600;
+  margin-top: 10px;
+  transition: background 0.3s ease;
+  width: 100%;
+}
+
+button:hover {
+  background: #0097a7;
+}
+
+#signup-link {
+  color: #0288d1;
+  font-weight: bold;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 15px 0;
+  font-weight: 500;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #ffffffcc;
+  border-radius: 12px;
+  overflow: hidden;
+  margin-top: 10px;
+}
+
+th {
+  background: #00bcd4;
+  color: white;
+  font-weight: bold;
+}
+
+td, th {
+  padding: 10px;
+  text-align: center;
+  font-size: 14px;
+}
+
+tr:nth-child(even) {
+  background-color: #f0f0f0;
+}
+
+/* 📱 For narrow panels like Chrome side popup */
+@media screen and (max-width: 480px) {
+  .container {
+    margin: 10px;
+    border-radius: 15px;
+    padding: 20px;
+  }
+
+  table td, table th {
+    font-size: 12px;
+    padding: 6px;
+  }
+
+  button {
+    font-size: 14px;
+    padding: 8px;
+  }
+}

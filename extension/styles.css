@@ -1,0 +1,36 @@
+body {
+  font-family: 'Poppins', sans-serif;
+  background: linear-gradient(to right, #000428, #004e92);
+  color: white;
+  padding: 20px;
+  width: 350px;
+}
+
+button {
+  padding: 10px 20px;
+  font-weight: bold;
+  background: #00f2fe;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+table {
+  width: 100%;
+  margin-top: 15px;
+  border-collapse: collapse;
+}
+
+th, td {
+  padding: 6px;
+  text-align: center;
+  border: 1px solid #ccc;
+}
+
+thead {
+  background: #0f2027;
+}
+
+tbody tr:nth-child(even) {
+  background: #1b2735;
+}

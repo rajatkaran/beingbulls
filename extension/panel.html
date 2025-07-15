@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>🧠 BeingBulls</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="panel.css" />
+</head>
+
+<body>
+  <div class="container">
+
+    <!-- 🔐 Login Section -->
+    <div id="login-section" class="glass-card">
+      <h2>🔐 Login to BeingBulls</h2>
+      <input type="email" id="email" placeholder="📧 Email" />
+      <input type="password" id="password" placeholder="🔑 Password" />
+      <button id="login-btn">🚀 Login</button>
+      <p>🆕 New here? <a href="#" id="signup-link">Sign up</a></p>
+    </div>
+
+    <!-- 📈 Scanner Section -->
+    <div id="scanner-section" class="glass-card" style="display: none;">
+      <h2>📊 Chart Scanner</h2>
+
+      <label>
+        <input type="checkbox" id="feedback-toggle" /> 🗣️ Enable Feedback
+      </label>
+
+      <button id="scan-btn">🔍 Scan Now</button>
+
+      <h3>📜 Previous Scans</h3>
+      <table id="scan-history" border="1" cellpadding="6">
+        <thead>
+          <tr>
+            <th>🕒 Timestamp</th>
+            <th>📉 Pattern</th>
+            <th>✅ EMA-5</th>
+            <th>📊 Confidence</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td colspan="4">No scans yet...</td></tr>
+        </tbody>
+      </table>
+      <label style="display: flex; align-items: center; gap: 8px; margin-top: 10px;">
+         <input type="checkbox" id="remember-me" />
+           🧠 Remember Me (stay logged in)
+      </label>
+
+       <button id="logout-btn">🚪 Logout</button>
+
+
+
+    </div>
+
+  </div>
+
+  <script src="panel.js"></script>
+</body>
+</html>
