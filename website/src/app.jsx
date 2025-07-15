@@ -5,7 +5,7 @@ import Home from "./pages/Home";
 import Login from "./pages/login";
 import Subscribe from "./pages/subscribe";
 import Dashboard from "./pages/dashboard";
-import Navbar from "./components/Navbar";
+
 
 const App = () => {
   return (
