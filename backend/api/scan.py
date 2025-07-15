@@ -1,9 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException
 from jose import jwt, JWTError
 from config import JWT_SECRET
-from ai.pattern_utils import detect_all_patterns
+from ai.pattern_utils import detect_all_patterns , calculate_ema
 from ai.ema_utils import is_ema_uptrend
-from database.mongo import get_db
+from database.mongo import scans, users, feedbacks
+
 from pydantic import BaseModel, EmailStr
 from datetime import datetime
 from typing import List
