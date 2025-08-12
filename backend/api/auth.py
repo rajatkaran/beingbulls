@@ -22,13 +22,22 @@ def send_otp_email(receiver: str, otp: str):
     msg['From'] = SMTP_SENDER
     msg['To'] = receiver
 
+    # Debugging: Show SMTP config in logs (not OTP/password)
+    print("SMTP Config -> HOST:", SMTP_HOST, "PORT:", SMTP_PORT, "SENDER:", SMTP_SENDER)
+
+    if not SMTP_SENDER or not SMTP_PASSWORD:
+        raise HTTPException(status_code=500, detail="SMTP credentials are missing in environment variables.")
+
     try:
         server = smtplib.SMTP(SMTP_HOST, SMTP_PORT)
+        server.ehlo()
         server.starttls()
+        server.ehlo()
         server.login(SMTP_SENDER, SMTP_PASSWORD)
         server.sendmail(SMTP_SENDER, receiver, msg.as_string())
         server.quit()
     except Exception as e:
+        print("SMTP Error:", str(e))
         raise HTTPException(status_code=500, detail=f"Email failed: {str(e)}")
 
 @router.post("/send-otp")
