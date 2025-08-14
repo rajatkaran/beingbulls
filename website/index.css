@@ -1,0 +1,29 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Design tokens */
+:root{
+  --bg:#0b0f1a;
+  --card:#111826aa;
+  --glass:#0f172acc;
+  --text:#e5e7eb;
+  --accent:#22c55e;
+}
+
+html,body,#root{height:100%}
+body{
+  background: radial-gradient(1000px 600px at 20% -10%, #172554 8%, transparent 60%),
+              radial-gradient(800px 500px at 90% 10%, #0f766e55 15%, transparent 60%),
+              var(--bg);
+  color: var(--text);
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Inter, "Helvetica Neue", Arial, "Apple Color Emoji","Segoe UI Emoji";
+}
+
+.btn-primary{
+  @apply inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-emerald-500/90 hover:bg-emerald-400 text-black font-semibold transition;
+}
+.card{
+  @apply rounded-2xl p-6 bg-white/5 backdrop-blur-xl border border-white/10 shadow-xl;
+}
+.navlink{@apply text-slate-300 hover:text-white transition;}
