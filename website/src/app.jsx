@@ -1,26 +1,25 @@
-import Navbar from "../components/navbar";
 import React from "react";
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-import Home from "../pages/Home";
-import Login from "../pages/login";
-import Subscribe from "../pages/subscribe";
-import Dashboard from "../pages/dashboard";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import Navbar from "../components/navbar.jsx";
+import Home from "../pages/Home.jsx";
+import Login from "../pages/login.jsx";
+import Dashboard from "../pages/dashboard.jsx";
+import Subscribe from "../pages/subscribe.jsx";
 
-
-const App = () => {
+export default function App(){
   return (
-    <Router>
-      <div className="pt-20 min-h-screen bg-gray-50">
+    <BrowserRouter>
+      <div className="min-h-screen">
         <Navbar />
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/subscribe" element={<Subscribe />} />
-          <Route path="/dashboard" element={<Dashboard />} />
-        </Routes>
+        <main className="max-w-6xl mx-auto px-4 py-10">
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/subscribe" element={<Subscribe />} />
+          </Routes>
+        </main>
       </div>
-    </Router>
+    </BrowserRouter>
   );
-};
-
-export default App;
+}
