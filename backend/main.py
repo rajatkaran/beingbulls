@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from api import scan, feedback, auth, payment
+from api import scan, feedback, auth, payment  # sirf ye import karo
 from ai.pattern_utils import detect_all_patterns, calculate_ema
 
 app = FastAPI(
@@ -19,11 +19,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include all routers
+# Routers
 app.include_router(auth.router, prefix="/auth", tags=["Authentication"])
 app.include_router(scan.router, prefix="/scan", tags=["Pattern Scan"])
 app.include_router(feedback.router, prefix="/feedback", tags=["Feedback"])
-app.include_router(payment.router, prefix="/payment", tags=["Payments"])
+app.include_router(payment.router, prefix="/payment", tags=["Payments"])  # ✅ Razorpay
 
 # Default route
 @app.get("/")
