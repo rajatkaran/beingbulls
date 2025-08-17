@@ -6,7 +6,7 @@ from ai.pattern_utils import detect_all_patterns, calculate_ema
 
 app = FastAPI(
     title="BeingBulls API",
-    description="Real-time chart pattern recognition engine 🧠",
+    description="Real-time chart pattern recognition engine 🧠", 
     version="1.0.0"
 )
 
@@ -29,3 +29,4 @@ app.include_router(payment.router, prefix="/payment", tags=["Payments"])  # ✅ 
 @app.get("/")
 def root():
     return {"message": "BeingBulls backend is live 🚀"}
+
