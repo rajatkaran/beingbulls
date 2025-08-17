@@ -1,8 +1,7 @@
 from fastapi import APIRouter, Request, HTTPException
 from config import RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET
 from datetime import datetime, timedelta
-from database.mongo import scans, users, feedbacks
-
+from database.mongo import users  # ✅ direct collection import
 import razorpay
 import hmac
 import hashlib
@@ -16,10 +15,10 @@ client = razorpay.Client(auth=(RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET))
 # Create Razorpay Order
 # ----------------------------
 @router.post("/create-order")
-def create_order(request: Request):
-    data = request.query_params
-    plan = data.get("plan")  # 'weekly' or 'monthly'
-    email = data.get("email")
+async def create_order(request: Request):
+    body = await request.json()
+    plan = body.get("plan")  # 'weekly' or 'monthly'
+    email = body.get("email")
 
     if not plan or not email:
         raise HTTPException(status_code=400, detail="Missing plan or email")
@@ -33,19 +32,23 @@ def create_order(request: Request):
     else:
         raise HTTPException(status_code=400, detail="Invalid plan")
 
-    order = client.order.create({
-        "amount": amount,
-        "currency": "INR",
-        "payment_capture": 1,
-        "notes": {"email": email, "plan": plan}
-    })
+    try:
+        order = client.order.create({
+            "amount": amount,
+            "currency": "INR",
+            "payment_capture": 1,
+            "notes": {"email": email, "plan": plan}
+        })
 
-    return {
-        "id": order["id"],
-        "amount": amount,
-        "currency": "INR",
-        "plan": plan
-    }
+        return {
+            "id": order["id"],
+            "amount": amount,
+            "currency": "INR",
+            "plan": plan,
+            "email": email
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 # ----------------------------
 # Razorpay Webhook Handler
@@ -72,8 +75,7 @@ async def razorpay_webhook(req: Request):
         duration = 7 if plan == "weekly" else 28
         expiry = datetime.utcnow() + timedelta(days=duration)
 
-        db = get_db()
-        db.users.update_one(
+        users.update_one(
             {"email": email},
             {"$set": {
                 "subscription_active": True,
