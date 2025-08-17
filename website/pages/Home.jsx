@@ -1,7 +1,7 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import Lottie from "lottie-react";
-import bullRun from "../bull-run.json"; // ✅ fixed path
+import bullRun from "../src/bull-run.json"; // ✅ Correct path for Vercel
 
 const Home = () => {
   return (
