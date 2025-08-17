@@ -30,3 +30,4 @@ app.include_router(payment.router, prefix="/payment", tags=["Payments"])  # ✅ 
 def root():
     return {"message": "BeingBulls backend is live 🚀"}
 
+
