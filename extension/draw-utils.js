@@ -1,28 +1,54 @@
+// ===============================
+//   BEINGBULLS – Overlay Engine
+// ===============================
 
-export function drawDetectedPatterns(patterns) {
-  clearOldOverlays();
+// Export globally (content.js can call this)
+window.drawDetectedPatterns = function (patterns) {
+  createOrResizeOverlayCanvas();
+  const canvas = document.getElementById("beingbulls-overlay-canvas");
+  const ctx = canvas.getContext("2d");
 
-  patterns.forEach((p, index) => {
-    const overlay = document.createElement("div");
-    overlay.innerText = `📊 ${p.name} (${p.confidence}%) - ${p.trend || "N/A"}`;
-    overlay.style.position = "fixed";
-    overlay.style.top = `${20 + index * 60}px`;
-    overlay.style.right = "20px";
-    overlay.style.zIndex = "999999";
-    overlay.style.padding = "10px 15px";
-    overlay.style.background = "#111";
-    overlay.style.color = "#00f2fe";
-    overlay.style.fontWeight = "bold";
-    overlay.style.borderRadius = "8px";
-    overlay.style.boxShadow = "0 0 8px #00f2fe";
-    overlay.className = "beingbulls-pattern-overlay";
+  // clear canvas before drawing
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    document.body.appendChild(overlay);
-    setTimeout(() => overlay.remove(), 6000);
-  });
-}
+  patterns.forEach((p, i) => {
+    // ------------------------------
+    // p MUST contain: x1, y1, x2, y2
+    // backend/content.js will fill these
+    // ------------------------------
 
-function clearOldOverlays() {
-  const old = document.querySelectorAll(".beingbulls-pattern-overlay");
-  old.forEach(el => el.remove());
-}
+    const x = p.x1;
+    const y = p.y1;
+    const w = p.x2 - p.x1;
+    const h = p.y2 - p.y1;
+
+    const trendColor =
+      p.trend && p.trend.toLowerCase().includes("bull")
+        ? "#00ff9d"
+        : "#ff4974";
+
+    // FANCY BORDER
+    ctx.save();
+    ctx.strokeStyle = trendColor;
+    ctx.lineWidth = 3;
+    ctx.setLineDash([10, 6]);
+    ctx.shadowBlur = 12;
+    ctx.shadowColor = trendColor;
+    ctx.strokeRect(x, y, w, h);
+    ctx.restore();
+
+    // TRANSLUCENT FILL
+    ctx.save();
+    ctx.globalAlpha = 0.12;
+    ctx.fillStyle = trendColor;
+    ctx.fillRect(x, y, w, h);
+    ctx.restore();
+
+    // LABEL (top-left)
+    const label = `${p.pattern || p.name} • ${Math.round(
+      p.confidence || 0
+    )}%`;
+
+    ctx.save();
+    ctx.font = "14px Poppins, sans-serif";
+    ctx.fillStyle =
