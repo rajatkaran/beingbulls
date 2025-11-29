@@ -557,37 +557,93 @@ const loginBtn = document.getElementById("login-btn");
 const signupLink = document.getElementById("signup-link");
 const logoutBtn = document.getElementById("logout-btn");
 const rememberCheckbox = document.getElementById("remember-me");
-const BACKEND_URL = "https://beingbulls-backend.onrender.com";
+const BACKEND_URL = "https://beingbulls-backend.onrender.com"; // live backend (change if needed)
 const RAZORPAY_KEY = "your_razorpay_key";
 
- // ✅ Use your actual backend URL
-
-// ✅ Auto-login if token is stored
-const token = localStorage.getItem("token");
-const expiry = localStorage.getItem("loginExpiry");
-
-let isValid = false;
-if (token) {
-  if (expiry === "never") {
-    isValid = true;
-  } else {
-    const now = new Date();
-    const exp = new Date(Number(expiry));
-    isValid = now <= exp;
+// --- Utility: set token+expiry in chrome.storage (and localStorage as fallback) ---
+function saveToken(token, expiryFlag) {
+  // expiryFlag: "never" or timestamp (ms)
+  chrome.storage.sync.set({ jwt: token, loginExpiry: expiryFlag }, () => {
+    console.log("✅ JWT + expiry saved to chrome.storage");
+  });
+  try {
+    localStorage.setItem("token", token);
+    localStorage.setItem("loginExpiry", expiryFlag);
+  } catch (e) {
+    // localStorage might not be available in some contexts — ignore
   }
 }
 
-if (isValid) {
-  loginSection.style.display = "none";
-  scannerSection.style.display = "block";
-  loadScanHistory();
-} else {
-  localStorage.removeItem("token");
-  localStorage.removeItem("loginExpiry");
+function clearTokenStorage() {
+  chrome.storage.sync.remove(["jwt", "loginExpiry"], () => {
+    console.log("🧹 JWT removed from chrome.storage");
+  });
+  try {
+    localStorage.removeItem("token");
+    localStorage.removeItem("loginExpiry");
+  } catch (e) {}
 }
 
+// --- Check existing login on load (prefer chrome.storage) ---
+async function checkExistingLogin() {
+  return new Promise((resolve) => {
+    chrome.storage.sync.get(["jwt", "loginExpiry"], (items) => {
+      let token = items.jwt;
+      let expiry = items.loginExpiry;
 
-// 🔐 Login logic
+      // fallback to localStorage if chrome.storage empty
+      if (!token) {
+        try {
+          token = localStorage.getItem("token");
+          expiry = localStorage.getItem("loginExpiry");
+        } catch (e) {}
+      }
+
+      let isValid = false;
+      if (token) {
+        if (expiry === "never") {
+          isValid = true;
+        } else {
+          const now = Date.now();
+          const exp = Number(expiry) || 0;
+          isValid = now <= exp;
+        }
+      }
+
+      resolve({ token, isValid });
+    });
+  });
+}
+
+// UI toggle helpers
+function showScanner() {
+  loginSection.style.display = "none";
+  scannerSection.style.display = "block";
+  loadScanHistory(); // show history once UI visible
+}
+function showLogin() {
+  loginSection.style.display = "block";
+  scannerSection.style.display = "none";
+}
+
+// Immediately check login
+checkExistingLogin().then(({ token, isValid }) => {
+  if (isValid) {
+    showScanner();
+  } else {
+    clearTokenStorage();
+    showLogin();
+  }
+});
+
+// --- Logout handler (moved outside login click) ---
+logoutBtn.addEventListener("click", () => {
+  clearTokenStorage();
+  alert("✅ Logged out.");
+  showLogin();
+});
+
+// --- Login logic ---
 loginBtn.addEventListener("click", async () => {
   const email = document.getElementById("email").value.trim();
   const password = document.getElementById("password").value.trim();
@@ -597,124 +653,133 @@ loginBtn.addEventListener("click", async () => {
     return;
   }
 
-//Logout Button Logic
-logoutBtn.addEventListener("click", () => {
-  localStorage.removeItem("token");
-  localStorage.removeItem("loginExpiry");
-
-  // ✅ Clear chrome.storage JWT
-  chrome.storage.sync.remove("jwt", () => {
-    console.log("🧹 JWT removed from chrome.storage");
-  });
-
-  loginSection.style.display = "block";
-  scannerSection.style.display = "none";
-});
-
-
-
-  // ✅ Admin bypass (offline mode)
+  // Admin bypass (offline mode)
   if (email === "admin@beingbulls.in" && password === "beingadmin123") {
-    localStorage.setItem("token", "admin-bypass-token");
+    saveToken("admin-bypass-token", "never");
     alert("✅ Logged in as Admin (offline mode)");
-    loginSection.style.display = "none";
-    scannerSection.style.display = "block";
-    loadScanHistory();
+    showScanner();
     return;
   }
 
-  // 🌐 Normal API login
+  loginBtn.disabled = true;
+  loginBtn.textContent = "Logging in...";
+
   try {
-    const response = await fetch(`${BACKEND_URL}/auth/login`, {
+    const res = await fetch(`${BACKEND_URL}/auth/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password })
+      body: JSON.stringify({ email, password }),
+      // timeout not available in fetch; backend should respond quickly
     });
 
-    const data = await response.json();
+    if (!res.ok) {
+      // try to parse backend error message
+      let msg = `Login failed (${res.status})`;
+      try {
+        const errorBody = await res.json();
+        msg = errorBody?.message || msg;
+      } catch (e) {}
+      throw new Error(msg);
+    }
 
+    const data = await res.json();
     if (data.token) {
-  localStorage.setItem("token", data.token);
+      const remember = rememberCheckbox?.checked;
+      const expiry = remember ? "never" : (Date.now() + 7 * 24 * 60 * 60 * 1000).toString(); // 7 days by default
 
-  // ✅ NEW: Store JWT in chrome.storage
-  chrome.storage.sync.set({ jwt: data.token }, () => {
-    console.log("✅ JWT stored in chrome.storage");
-  });
-
-  alert("✅ Logged in successfully");
-  loginSection.style.display = "none";
-  scannerSection.style.display = "block";
-  loadScanHistory();
- }else {
-      alert("❌ Invalid login. Please try again.");
+      saveToken(data.token, expiry);
+      alert("✅ Logged in successfully");
+      showScanner();
+    } else {
+      throw new Error("Invalid response from backend.");
     }
   } catch (error) {
     console.error("Login error:", error);
-    alert("🚫 Backend not reachable. Try again later or use admin login.");
+    alert(`🚫 Login failed: ${error.message || error}`);
+  } finally {
+    loginBtn.disabled = false;
+    loginBtn.textContent = "Login";
   }
 });
 
-// 🔗 Redirect to sign-up page
+// --- Signup redirect ---
 signupLink.addEventListener("click", () => {
+  // opens live website signup (change if different)
   window.open("https://beingbulls.in/signup", "_blank");
 });
 
-// 🔍 Trigger scan
-scanBtn.addEventListener("click", () => {
-  const token = localStorage.getItem("token");
-  const feedback = document.getElementById("feedback-toggle")?.checked || false;
+// --- Trigger scan ---
+scanBtn.addEventListener("click", async () => {
+  // Get latest token from chrome.storage (prefer authoritative source)
+  chrome.storage.sync.get(["jwt"], (items) => {
+    const token = items.jwt || localStorage.getItem("token");
+    const feedback = document.getElementById("feedback-toggle")?.checked || false;
 
-  if (!token) {
-    alert("🔒 Please log in first.");
-    return;
-  }
-
-  try {
-    chrome.runtime.sendMessage({
-      type: "TRIGGER_SCAN",
-      token,
-      feedback
-    });
-  } catch (err) {
-    console.error("Scan error:", err);
-    alert("⚠️ Scan failed or backend not connected.");
-  }
-});
-
-// 📜 Load scan history table
-async function loadScanHistory() {
-  const token = localStorage.getItem("token");
-  if (!token) return;
-
-  try {
-    const res = await fetch(`${BACKEND_URL}/scan/history`, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    const result = await res.json();
-
-    const tbody = document.querySelector("#scan-history tbody");
-    tbody.innerHTML = "";
-
-    if (!result?.history?.length) {
-      const tr = document.createElement("tr");
-      tr.innerHTML = `<td colspan="4">😕 No scans yet.</td>`;
-      tbody.appendChild(tr);
+    if (!token) {
+      alert("🔒 Please log in first.");
       return;
     }
 
-    result.history.forEach(row => {
-      const tr = document.createElement("tr");
-      tr.innerHTML = `
-        <td>${new Date(row.timestamp).toLocaleString()}</td>
-        <td>${row.pattern}</td>
-        <td>${row.emaConfirmed ? "✅" : "❌"}</td>
-        <td>${row.confidence}%</td>
-      `;
-      tbody.appendChild(tr);
-    });
-  } catch (err) {
-    console.error("Error loading history:", err);
-    const tbody = document.querySelector("#scan-history tbody");
-    tbody.innerHTML = `<tr><td colspan="4">⚠️ Unable to fetch data.</td></tr>`;
-  }
+    try {
+      chrome.runtime.sendMessage({
+        type: "TRIGGER_SCAN",
+        token,
+        feedback
+      }, (resp) => {
+        // optional callback
+        console.log("Scan message sent, response:", resp);
+      });
+    } catch (err) {
+      console.error("Scan error:", err);
+      alert("⚠️ Scan failed to send. Is the extension background script loaded?");
+    }
+  });
+});
+
+// --- Load scan history ---
+async function loadScanHistory() {
+  // Prefer chrome.storage
+  chrome.storage.sync.get(["jwt"], async (items) => {
+    const token = items.jwt || localStorage.getItem("token");
+    if (!token) return;
+
+    try {
+      const res = await fetch(`${BACKEND_URL}/scan/history`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      if (!res.ok) {
+        throw new Error(`Server returned ${res.status}`);
+      }
+
+      const result = await res.json();
+
+      const tbody = document.querySelector("#scan-history tbody");
+      tbody.innerHTML = "";
+
+      if (!result?.history?.length) {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `<td colspan="4">😕 No scans yet.</td>`;
+        tbody.appendChild(tr);
+        return;
+      }
+
+      result.history.forEach(row => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${new Date(row.timestamp).toLocaleString()}</td>
+          <td>${row.pattern || "-"}</td>
+          <td>${row.emaConfirmed ? "✅" : "❌"}</td>
+          <td>${row.confidence ?? "-"}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    } catch (err) {
+      console.error("Error loading history:", err);
+      const tbody = document.querySelector("#scan-history tbody");
+      tbody.innerHTML = `<tr><td colspan="4">⚠️ Unable to fetch data.</td></tr>`;
+    }
+  });
 }
+
+
