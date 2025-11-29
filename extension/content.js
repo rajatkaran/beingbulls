@@ -50,99 +50,117 @@
 //  return candles.slice(-30); // last 30 candles
 // }
 
-// ✅ extension/content.js (with smart universal OHLC + emoji overlays)
+// =========================================================
+// ✅ extension/content.js (FINAL PRODUCTION VERSION)
+// =========================================================
 
-// Dynamically import draw utils
+// Dynamically import draw-utils.js
 (async () => {
-  const { drawDetectedPatterns } = await import(chrome.runtime.getURL("draw-utils.js"));
-  window.drawDetectedPatterns = drawDetectedPatterns; // attach globally
+  try {
+    const { drawDetectedPatterns } = await import(
+      chrome.runtime.getURL("draw-utils.js")
+    );
+    window.drawDetectedPatterns = drawDetectedPatterns;
+  } catch (err) {
+    console.error("❌ Failed to load draw-utils.js:", err);
+  }
 })();
 
-chrome.runtime.onMessage.addListener(async (msg, sender, sendResponse) => {
-  if (msg.type === "SCRAPE_CHART" || msg.type === "TRIGGER_SCAN") {
-    const token = msg.token;
-    const feedback = msg.feedback;
-    const candles = extractOHLCFromChart();
+// Listen for scan trigger from panel.js or background.js
+chrome.runtime.onMessage.addListener(async (msg) => {
+  if (msg.type !== "TRIGGER_SCAN" && msg.type !== "SCRAPE_CHART") return;
 
-    if (!candles.length) {
-      alert("⚠️ Unable to extract chart data.");
-      return;
-    }
+  const token = msg.token;
+  const feedback = msg.feedback || false;
 
-    fetch("https://beingbulls-backend.onrender.com/scan", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...(token && { Authorization: `Bearer ${token}` })
-      },
-      body: JSON.stringify({
-        candles,
-        feedback: feedback || false,
-      }),
-    })
-      .then(res => res.json())
-      .then(result => {
-        console.log("📈 Pattern result:", result);
-        if (result.patterns?.length) {
-          window.drawDetectedPatterns(result.patterns);
-        } else {
-          alert("📭 No strong pattern found.");
-        }
-      })
-      .catch(err => {
-        console.error("Scan failed:", err);
-        alert("❌ Failed to connect to scan endpoint.");
-      });
+  const candles = extractOHLCFromChart();
+
+  if (!candles.length) {
+    alert("⚠️ Unable to extract chart data from screen.");
+    return;
   }
+
+  // Call your LIVE backend
+  fetch("https://beingbulls-backend.onrender.com/scan", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(token && { Authorization: `Bearer ${token}` })
+    },
+    body: JSON.stringify({
+      candles,
+      feedback
+    }),
+  })
+    .then(res => res.json())
+    .then(result => {
+      console.log("📊 Scan Result:", result);
+
+      if (result?.patterns?.length > 0) {
+        window.drawDetectedPatterns(result.patterns);
+      } else {
+        alert("📭 No strong pattern detected.");
+      }
+    })
+    .catch(err => {
+      console.error("❌ Scan request failed:", err);
+      alert("🚫 Could not reach backend scan API.");
+    });
 });
 
-// 🔀 Combined extractor (TradingView or generic platforms)
+// =========================================================
+// 🔍 UNIVERSAL OHLC EXTRACTOR
+// =========================================================
+
 function extractOHLCFromChart() {
   if (location.hostname.includes("tradingview")) {
     return extractFromTradingView();
-  } else {
-    return extractFromDOMGeneric();
   }
+  return extractFromGenericDOM();
 }
 
+// --- TradingView OHLC Scraper ---
 function extractFromTradingView() {
   try {
-    const series = Object.values(window)
-      .find(obj => obj?.state?.seriesesStore)
-      ?.state?.seriesesStore?.serieses;
+    const tv = Object.values(window).find(obj => obj?.state?.seriesesStore);
 
-    const seriesArr = Object.values(series || {});
-    if (!seriesArr.length) return [];
+    if (!tv) return [];
 
-    const bars = seriesArr[0]?.bars?._value || [];
+    const series = tv.state.seriesesStore.serieses;
+    const primarySeries = Object.values(series || {})[0];
 
-    const candles = bars.slice(-80).map(bar => ({
+    if (!primarySeries) return [];
+
+    const bars = primarySeries.bars?._value || [];
+    if (!bars.length) return [];
+
+    // last 80 candles
+    return bars.slice(-80).map(bar => ({
       time: bar.time * 1000,
       open: bar.open,
       high: bar.high,
       low: bar.low,
       close: bar.close,
     }));
-
-    return candles;
   } catch (err) {
-    console.error("⚠️ TradingView scrape failed:", err);
+    console.error("⚠️ TradingView extraction failed:", err);
     return [];
   }
 }
 
-function extractFromDOMGeneric() {
+// --- Fallback for generic charting websites ---
+function extractFromGenericDOM() {
   const ohlc = { open: null, high: null, low: null, close: null };
-  const candidates = document.querySelectorAll("div, span");
+  const nodes = document.querySelectorAll("div, span");
 
-  candidates.forEach((el) => {
-    const text = el.innerText?.toLowerCase();
-    if (!text || text.length > 50) return;
+  nodes.forEach((el) => {
+    const txt = el.innerText?.toLowerCase();
+    if (!txt || txt.length > 50) return;
 
-    if (text.includes("open") && /\d/.test(text)) ohlc.open = extractNumber(text);
-    if (text.includes("high") && /\d/.test(text)) ohlc.high = extractNumber(text);
-    if (text.includes("low") && /\d/.test(text)) ohlc.low = extractNumber(text);
-    if (text.includes("close") && /\d/.test(text)) ohlc.close = extractNumber(text);
+    if (txt.includes("open")) ohlc.open = extractNumber(txt);
+    if (txt.includes("high")) ohlc.high = extractNumber(txt);
+    if (txt.includes("low")) ohlc.low = extractNumber(txt);
+    if (txt.includes("close")) ohlc.close = extractNumber(txt);
   });
 
   if (ohlc.open && ohlc.high && ohlc.low && ohlc.close) {
@@ -152,9 +170,9 @@ function extractFromDOMGeneric() {
         ...ohlc,
       },
     ];
-  } else {
-    return [];
   }
+
+  return [];
 }
 
 function extractNumber(text) {
