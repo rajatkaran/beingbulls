@@ -51,131 +51,218 @@
 // }
 
 // =========================================================
-// ✅ extension/content.js (FINAL PRODUCTION VERSION)
+// ✅ extension/content.js (Fixed & Robust)
 // =========================================================
 
-// Dynamically import draw-utils.js
+// Dynamically import draw-utils.js and expose global function
 (async () => {
   try {
-    const { drawDetectedPatterns } = await import(
-      chrome.runtime.getURL("draw-utils.js")
-    );
-    window.drawDetectedPatterns = drawDetectedPatterns;
+    const module = await import(chrome.runtime.getURL("draw-utils.js"));
+    // support both named export and window-exported functions
+    window.drawDetectedPatterns = module.drawDetectedPatterns || module.default || window.drawDetectedPatterns;
   } catch (err) {
     console.error("❌ Failed to load draw-utils.js:", err);
   }
 })();
 
 // Listen for scan trigger from panel.js or background.js
-chrome.runtime.onMessage.addListener(async (msg) => {
-  if (msg.type !== "TRIGGER_SCAN" && msg.type !== "SCRAPE_CHART") return;
+chrome.runtime.onMessage.addListener(async (msg, sender, sendResponse) => {
+  if (!msg || (msg.type !== "TRIGGER_SCAN" && msg.type !== "SCRAPE_CHART")) return;
 
   const token = msg.token;
   const feedback = msg.feedback || false;
 
   const candles = extractOHLCFromChart();
 
-  if (!candles.length) {
-    alert("⚠️ Unable to extract chart data from screen.");
+  if (!candles || !candles.length) {
+    // Inform panel about failure
+    chrome.runtime.sendMessage({ type: "SCAN_RESULT", success: false, error: "Unable to extract chart data" });
     return;
   }
 
-  // Call your LIVE backend
-  fetch("https://beingbulls-backend.onrender.com/scan", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...(token && { Authorization: `Bearer ${token}` })
-    },
-    body: JSON.stringify({
-      candles,
-      feedback
-    }),
-  })
-    .then(res => res.json())
-    .then(result => {
-      console.log("📊 Scan Result:", result);
-
-      if (result?.patterns?.length > 0) {
-        window.drawDetectedPatterns(result.patterns);
-      } else {
-        alert("📭 No strong pattern detected.");
-      }
-    })
-    .catch(err => {
-      console.error("❌ Scan request failed:", err);
-      alert("🚫 Could not reach backend scan API.");
+  // Send to backend
+  try {
+    const resp = await fetch("https://beingbulls-backend.onrender.com/scan", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token && { Authorization: `Bearer ${token}` })
+      },
+      body: JSON.stringify({
+        candles,
+        feedback
+      }),
     });
+
+    if (!resp.ok) {
+      const txt = await resp.text();
+      console.error("Scan API returned error:", resp.status, txt);
+      chrome.runtime.sendMessage({ type: "SCAN_RESULT", success: false, error: `Server ${resp.status}` });
+      return;
+    }
+
+    const result = await resp.json();
+    console.log("📊 Scan Result:", result);
+
+    // Normalize patterns array
+    const patterns = (result?.patterns) || [];
+
+    // If patterns have start/end but no pixel coords, map them to screen
+    const normalized = mapPatternsToPixels(patterns, candles);
+
+    // Draw overlays (if draw-utils available)
+    try {
+      if (window.drawDetectedPatterns && typeof window.drawDetectedPatterns === "function") {
+        window.drawDetectedPatterns(normalized);
+      } else {
+        console.warn("drawDetectedPatterns not available");
+      }
+    } catch (err) {
+      console.error("Error while drawing overlays:", err);
+    }
+
+    // Send results back to panel UI
+    chrome.runtime.sendMessage({ type: "SCAN_RESULT", success: true, data: normalized });
+  } catch (err) {
+    console.error("❌ Scan request failed:", err);
+    chrome.runtime.sendMessage({ type: "SCAN_RESULT", success: false, error: "Network/Fetch failed" });
+  }
 });
 
 // =========================================================
-// 🔍 UNIVERSAL OHLC EXTRACTOR
+//  OHLC extraction helpers
 // =========================================================
 
 function extractOHLCFromChart() {
-  if (location.hostname.includes("tradingview")) {
-    return extractFromTradingView();
-  }
-  return extractFromGenericDOM();
-}
-
-// --- TradingView OHLC Scraper ---
-function extractFromTradingView() {
   try {
-    const tv = Object.values(window).find(obj => obj?.state?.seriesesStore);
-
-    if (!tv) return [];
-
-    const series = tv.state.seriesesStore.serieses;
-    const primarySeries = Object.values(series || {})[0];
-
-    if (!primarySeries) return [];
-
-    const bars = primarySeries.bars?._value || [];
-    if (!bars.length) return [];
-
-    // last 80 candles
-    return bars.slice(-80).map(bar => ({
-      time: bar.time * 1000,
-      open: bar.open,
-      high: bar.high,
-      low: bar.low,
-      close: bar.close,
-    }));
+    if (location.hostname.includes("tradingview")) {
+      const tv = findTradingView();
+      if (tv) {
+        const out = extractFromTradingView(tv);
+        if (out && out.length) return out;
+      }
+    }
   } catch (err) {
-    console.error("⚠️ TradingView extraction failed:", err);
-    return [];
+    console.warn("TradingView extraction threw:", err);
   }
-}
 
-// --- Fallback for generic charting websites ---
-function extractFromGenericDOM() {
-  const ohlc = { open: null, high: null, low: null, close: null };
-  const nodes = document.querySelectorAll("div, span");
-
-  nodes.forEach((el) => {
-    const txt = el.innerText?.toLowerCase();
-    if (!txt || txt.length > 50) return;
-
-    if (txt.includes("open")) ohlc.open = extractNumber(txt);
-    if (txt.includes("high")) ohlc.high = extractNumber(txt);
-    if (txt.includes("low")) ohlc.low = extractNumber(txt);
-    if (txt.includes("close")) ohlc.close = extractNumber(txt);
-  });
-
-  if (ohlc.open && ohlc.high && ohlc.low && ohlc.close) {
-    return [
-      {
-        time: Date.now(),
-        ...ohlc,
-      },
-    ];
+  // Generic fallback
+  try {
+    const generic = extractFromGenericDOM();
+    if (generic && generic.length) return generic;
+  } catch (err) {
+    console.warn("Generic extraction threw:", err);
   }
 
   return [];
 }
 
+// --- TradingView OHLC Scraper ---
+function findTradingView() {
+  // robust search for TradingView internals
+  try {
+    // Many TradingView builds expose an object containing 'seriesesStore' in window
+    return Object.values(window).find(obj => obj && obj.state && obj.state.seriesesStore);
+  } catch (e) {
+    return null;
+  }
+}
+
+function extractFromTradingView(tvObj) {
+  try {
+    const series = tvObj.state.seriesesStore.serieses;
+    const primarySeries = Object.values(series || {})[0];
+    if (!primarySeries) return [];
+
+    // bars might live in different places depending on TV version
+    const bars = primarySeries.bars?._value || primarySeries.bars?._items || [];
+    if (!bars || !bars.length) return [];
+
+    // defend: bars may contain big objects; normalize last N
+    const lastN = 80;
+    const slice = bars.slice(-lastN);
+    return slice.map(bar => ({
+      time: (bar.time || bar.t || 0) * (bar.time ? 1000 : 1),
+      open: Number(bar.open ?? bar.o ?? bar[1]),
+      high: Number(bar.high ?? bar.h ?? bar[2]),
+      low: Number(bar.low ?? bar.l ?? bar[3]),
+      close: Number(bar.close ?? bar.c ?? bar[4]),
+    })).filter(b => Number.isFinite(b.open) && Number.isFinite(b.close));
+  } catch (err) {
+    console.error("TradingView extraction failed:", err);
+    return [];
+  }
+}
+
+// --- Fallback for generic charting websites (very simple) ---
+function extractFromGenericDOM() {
+  // Try to pick up OHLC labels displayed on the page
+  const ohlc = { open: null, high: null, low: null, close: null };
+  const nodes = Array.from(document.querySelectorAll("div, span, td"));
+
+  for (const el of nodes) {
+    const txt = (el.innerText || "").toLowerCase().trim();
+    if (!txt || txt.length > 100) continue;
+
+    if (txt.includes("open") && !ohlc.open) ohlc.open = extractNumber(txt);
+    if (txt.includes("high") && !ohlc.high) ohlc.high = extractNumber(txt);
+    if (txt.includes("low") && !ohlc.low) ohlc.low = extractNumber(txt);
+    if (txt.includes("close") && !ohlc.close) ohlc.close = extractNumber(txt);
+  }
+
+  if (ohlc.open && ohlc.high && ohlc.low && ohlc.close) {
+    return [{ time: Date.now(), ...ohlc }];
+  }
+  return [];
+}
+
 function extractNumber(text) {
-  const match = text.match(/[0-9]+(\.[0-9]+)?/);
-  return match ? parseFloat(match[0]) : null;
+  if (!text || typeof text !== "string") return null;
+  const m = text.replace(/,/g, "").match(/-?\d+(\.\d+)?/);
+  return m ? Number(m[0]) : null;
+}
+
+// =========================================================
+// Map pattern start/end (indices) -> screen pixel coordinates
+// If backend already returns x1,y1,x2,y2, keep as is.
+// =========================================================
+function mapPatternsToPixels(patterns = [], candles = []) {
+  if (!patterns || !patterns.length) return [];
+
+  // find chart drawing area (best-effort). Prefer canvas or main chart container
+  const canvas = document.querySelector("canvas");
+  let chartRect;
+  if (canvas) {
+    chartRect = canvas.getBoundingClientRect();
+  } else {
+    // fallback: find a likely chart div
+    const possible = document.querySelector('[class*="chart"]') || document.body;
+    chartRect = possible.getBoundingClientRect();
+  }
+
+  const n = candles.length || 1;
+  const xPerCandle = chartRect.width / n;
+
+  const mapped = patterns.map(p => {
+    // if backend already returned pixel bbox, use it
+    if (p.x1 !== undefined && p.y1 !== undefined && p.x2 !== undefined && p.y2 !== undefined) {
+      return p;
+    }
+
+    // if backend returned start/end indices, map them
+    const start = Number.isFinite(p.start) ? p.start : (p.idx_start ?? 0);
+    const end = Number.isFinite(p.end) ? p.end : (p.idx_end ?? start);
+
+    const x1 = Math.round(chartRect.left + (start / n) * chartRect.width);
+    const x2 = Math.round(chartRect.left + ((end + 1) / n) * chartRect.width);
+    const y1 = Math.round(chartRect.top);
+    const y2 = Math.round(chartRect.top + chartRect.height);
+
+    return {
+      ...p,
+      x1, y1, x2, y2
+    };
+  });
+
+  return mapped;
 }
