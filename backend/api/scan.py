@@ -188,3 +188,54 @@ def scan_patterns(scan_data: ScanRequest, authorization: Optional[str] = Header(
         "patterns": detections,
         "ema_confirmed": bool(ema_confirmed)
     }
+# ============================================================
+#  GET /scan/history  → return scan history for logged user
+# ============================================================
+@router.get("/history")
+def get_scan_history(authorization: Optional[str] = Header(None)):
+    """
+    Returns latest 50 scan entries for the logged-in user.
+    Frontend/Extension calls this with:
+        Authorization: Bearer <token>
+    """
+
+    # -----------------------
+    # STEP 1: Extract JWT
+    # -----------------------
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Authorization token missing")
+
+    try:
+        parts = authorization.split()
+        token = parts[1] if len(parts) > 1 else parts[0]
+        user_email = verify_token_value(token)
+    except Exception as e:
+        print("[history] invalid token", e)
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    if not user_email:
+        raise HTTPException(status_code=401, detail="User not authenticated")
+
+    # -----------------------
+    # STEP 2: Fetch history from DB
+    # -----------------------
+    try:
+        cursor = scans.find(
+            {"email": user_email}
+        ).sort("timestamp", -1).limit(50)
+
+        history_list = []
+        for h in cursor:
+            history_list.append({
+                "pattern": h.get("patterns_detected", ["-"])[0] if h.get("patterns_detected") else "-",
+                "confidence": h.get("confidence_scores", [None])[0],
+                "emaConfirmed": h.get("ema_confirmed", False),
+                "timestamp": h.get("timestamp").isoformat()
+            })
+
+        return {"history": history_list}
+
+    except Exception as e:
+        print("[history] DB read error:", e)
+        raise HTTPException(status_code=500, detail="Database error")
+
