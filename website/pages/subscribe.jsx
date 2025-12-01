@@ -1,28 +1,28 @@
 // website/pages/subscribe.jsx
 import React, { useEffect, useState } from "react";
-useEffect(() => {
-  const token = localStorage.getItem("token");
-  if (!token) return (window.location.href = "/login");
-
-  fetch(`${BACKEND}/auth/me`, {
-    headers: { Authorization: `Bearer ${token}` }
-  })
-    .then(res => res.json())
-    .then(data => {
-      if (data?.isSubscribed) {
-        alert("🎉 You already have an active subscription!");
-        window.location.href = "/dashboard";
-      }
-    });
-}, []);
-
 
 const BACKEND = import.meta.env.VITE_BACKEND_URL;
 const RZP_KEY = import.meta.env.VITE_RAZORPAY_KEY_ID;
 
 export default function SubscribePage() {
   const [loading, setLoading] = useState(false);
-  const token = localStorage.getItem("bb_token");
+  const token = localStorage.getItem("token");
+
+  // 🔥 FIX  — useEffect should be inside component
+  useEffect(() => {
+    if (!token) return (window.location.href = "/login");
+
+    fetch(`${BACKEND}/auth/me`, {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+      .then(res => res.json())
+      .then(data => {
+        if (data?.isSubscribed) {
+          alert("🎉 You already have an active subscription!");
+          window.location.href = "/dashboard";
+        }
+      });
+  }, []);
 
   if (!token) {
     alert("🔒 Please login first!");
@@ -60,9 +60,8 @@ export default function SubscribePage() {
         name: "BeingBulls",
         description: `${plan.toUpperCase()} Subscription`,
         order_id: orderData.order_id,
-        theme: {
-          color: "#00f2fe",
-        },
+        theme: { color: "#00f2fe" },
+
         handler: async function (response) {
           const verifyBody = {
             order_id: response.razorpay_order_id,
@@ -143,4 +142,3 @@ export default function SubscribePage() {
     </div>
   );
 }
-
