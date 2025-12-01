@@ -267,3 +267,35 @@ def create_order(payload: OrderCreate, authorization: Optional[str] = Header(Non
     except Exception as e:
         logger.exception("[payment:create-order] order create failed")
         raise HTTPException(status_code=500, detail="Order create failed")
+
+# ------------------------------------------
+# CREATE ORDER (Frontend → Razorpay order)
+# ------------------------------------------
+@router.post("/create-order")
+async def create_order(payload: dict, authorization: Optional[str] = Header(None)):
+    token = authorization.split()[1] if authorization else None
+    email = verify_token_value(token)
+    if not email:
+        raise HTTPException(401, "Invalid token")
+
+    plan = payload.get("plan")
+    if plan == "monthly":
+        amount = 219 * 100
+    else:
+        amount = 59 * 100
+
+    import razorpay
+    client = razorpay.Client(auth=(RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET))
+
+    order = client.order.create({
+        "amount": amount,
+        "currency": "INR",
+        "payment_capture": 1
+    })
+
+    return {
+        "order_id": order["id"],
+        "amount": amount
+    }
+
+
