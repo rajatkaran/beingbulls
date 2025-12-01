@@ -7,6 +7,9 @@ from datetime import datetime, timedelta
 import smtplib
 from email.mime.text import MIMEText
 from random import randint
+# near existing imports in auth.py
+import bcrypt
+from fastapi import Body
 
 from database.mongo import users
 
@@ -222,4 +225,66 @@ def get_me(authorization: str = Header(None)):
         "plan": user.get("plan"),
         "remaining_days": remaining_days
     }
+# ---------------------------
+# Forgot Password (OTP) flow
+# ---------------------------
+
+# We'll reuse otp_store but prefix keys to avoid collisions
+RESET_PREFIX = "reset-otp:"
+
+class ResetRequest(BaseModel):
+    email: EmailStr
+
+class ResetVerify(BaseModel):
+    email: EmailStr
+    otp: str
+    new_password: str
+
+@router.post("/send-reset-otp")
+def send_reset_otp(req: ResetRequest):
+    """
+    Send OTP for password reset. Endpoint: POST /auth/send-reset-otp { email }
+    """
+    from random import randint
+    otp = str(randint(100000, 999999))
+    otp_store[RESET_PREFIX + req.email] = otp
+    try:
+        send_otp_email(req.email, otp)  # reuses existing send_otp_email helper
+    except HTTPException as e:
+        raise e
+    return {"message": "Reset OTP sent"}
+
+@router.post("/reset-password")
+def reset_password(req: ResetVerify):
+    """
+    Verify reset OTP and set new password (stored hashed).
+    POST /auth/reset-password { email, otp, new_password }
+    """
+    key = RESET_PREFIX + req.email
+    stored = otp_store.get(key)
+    if not stored or stored != req.otp:
+        raise HTTPException(status_code=401, detail="Invalid or expired OTP")
+
+    # Remove OTP once used
+    otp_store.pop(key, None)
+
+    # Hash password and update user document
+    try:
+        hashed = bcrypt.hashpw(req.new_password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+    except Exception as e:
+        print("[auth.reset] bcrypt error:", e)
+        raise HTTPException(status_code=500, detail="Password hashing failed")
+
+    try:
+        users.update_one(
+            {"email": req.email},
+            {"$set": {"password_hash": hashed}},
+            upsert=True
+        )
+    except Exception as e:
+        print("[auth.reset] DB update error:", e)
+        raise HTTPException(status_code=500, detail="Failed to set password")
+
+    return {"message": "Password reset successful"}
+
 
