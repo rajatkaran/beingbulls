@@ -1,83 +1,82 @@
-// website/pages/login.jsx  (emoji-friendly)
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
 
-const BACKEND = import.meta.env.VITE_BACKEND_URL || "https://beingbulls-backend.onrender.com";
+const BACKEND = import.meta.env.VITE_BACKEND_URL;
 
-export default function LoginPage() {
+export default function Login() {
   const [email, setEmail] = useState("");
   const [otpSent, setOtpSent] = useState(false);
   const [otp, setOtp] = useState("");
-  const [loading, setLoading] = useState(false);
-  const nav = useNavigate();
 
-  async function sendOtp() {
-    if (!email) return alert("⚠️ Email dal yaar");
-    setLoading(true);
-    try {
-      const res = await fetch(`${BACKEND}/auth/send-otp`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email })
-      });
-      if (!res.ok) throw new Error("Send failed");
+  const sendOtp = async () => {
+    if (!email) return alert("⚠️ Please enter your email!");
+    const res = await fetch(`${BACKEND}/auth/send-otp`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email })
+    });
+    const data = await res.json();
+    if (res.ok) {
       setOtpSent(true);
-      alert("✉️ OTP sent — check your inbox!");
-    } catch (e) {
-      console.error(e);
-      alert("🚫 OTP bhejne mein problem");
-    } finally { setLoading(false); }
-  }
+      alert("📩 OTP sent to your email!");
+    } else {
+      alert(data.detail || "❌ Error sending OTP");
+    }
+  };
 
-  async function verifyOtp() {
-    if (!email || !otp) return alert("⚠️ Email aur OTP dono chahiye");
-    setLoading(true);
-    try {
-      const res = await fetch(`${BACKEND}/auth/verify-otp`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, otp })
-      });
-      if (!res.ok) {
-        const t = await res.text().catch(()=>"");
-        throw new Error(t || "Verify failed");
-      }
-      const j = await res.json();
-      const token = j.access_token;
-      localStorage.setItem("bb_token", token);
-      localStorage.setItem("bb_email", email);
-      alert("✅ Logged in — welcome back!");
-      nav("/dashboard");
-    } catch (e) {
-      console.error(e);
-      alert("🚫 OTP verify failed");
-    } finally { setLoading(false); }
-  }
+  const verifyOtp = async () => {
+    if (!otp) return alert("🔢 Please enter OTP!");
+    const res = await fetch(`${BACKEND}/auth/verify-otp`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, otp })
+    });
+
+    const data = await res.json();
+    if (!res.ok) return alert(data.detail || "❌ OTP incorrect");
+
+    localStorage.setItem("token", data.access_token);
+    alert("🎉 Login successful!");
+    window.location.href = "/dashboard";
+  };
 
   return (
-    <div className="max-w-md mx-auto p-6">
-      <h2 className="text-2xl font-bold mb-4">🔒 Login / Signup — BeingBulls</h2>
-      <label className="block mb-2">✉️ Email</label>
-      <input value={email} onChange={e=>setEmail(e.target.value)} className="w-full p-2 border rounded mb-3" placeholder="you@example.com"/>
+    <div className="login-container">
+      <h1>🔐 Login to BeingBulls</h1>
+
+      <input
+        type="email"
+        placeholder="📧 Enter Email"
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+      />
+
       {!otpSent ? (
-        <button onClick={sendOtp} className="px-4 py-2 bg-blue-600 text-white rounded" disabled={loading}>
-          {loading ? "⏳ Sending..." : "📩 Send OTP"}
-        </button>
+        <button onClick={sendOtp}>📨 Send OTP</button>
       ) : (
         <>
-          <label className="block mt-4 mb-2">🔑 Enter OTP</label>
-          <input value={otp} onChange={e=>setOtp(e.target.value)} className="w-full p-2 border rounded mb-3" placeholder="123456" />
-          <div className="flex gap-2">
-            <button onClick={verifyOtp} className="px-4 py-2 bg-green-600 text-white rounded" disabled={loading}>
-              {loading ? "⏳ Verifying..." : "✅ Verify & Login"}
-            </button>
-            <button onClick={()=>setOtpSent(false)} className="px-4 py-2 border rounded">✏️ Edit Email</button>
-          </div>
+          <input
+            type="text"
+            placeholder="🔢 Enter OTP"
+            value={otp}
+            onChange={(e) => setOtp(e.target.value)}
+          />
+          <button onClick={verifyOtp}>✅ Verify OTP</button>
         </>
       )}
-      <div className="mt-4 text-sm">
-        New here? <a className="text-blue-600" href="/signup">🚀 Create account</a>
-      </div>
+
+      <p
+        onClick={() => window.location.href = "/forgot-password"}
+        style={{ cursor: "pointer" }}
+      >
+        🔄 Forgot password?
+      </p>
+
+      <p
+        onClick={() => window.location.href = "/signup"}
+        style={{ cursor: "pointer" }}
+      >
+        ➕ Create new account
+      </p>
     </div>
   );
 }
