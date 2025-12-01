@@ -1,10 +1,8 @@
 // website/src/app.jsx
 import React from "react";
 import { createRoot } from "react-dom/client";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-
+import { HashRouter as BrowserRouter, Routes, Route } from "react-router-dom";
 import "../index.css";
-
 import Navbar from "../components/navbar.jsx";
 import Home from "../pages/Home.jsx";
 import Login from "../pages/login.jsx";
