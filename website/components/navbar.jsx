@@ -1,86 +1,71 @@
-import React from "react";
-import { Link, useLocation } from "react-router-dom";
-const [subActive, setSubActive] = useState(false);
+import React, { useEffect, useState } from "react";
 
-useEffect(() => {
-  const token = localStorage.getItem("token");
-  if (!token) return;
-
-  fetch(`${BACKEND}/auth/me`, {
-    headers: { Authorization: `Bearer ${token}` }
-  })
-    .then(r => r.json())
-    .then(d => setSubActive(d?.isSubscribed || false));
-}, []);
-
-...
-
-{!subActive && (
-  <button onClick={() => (window.location.href = "/subscribe")}>
-    💳 Subscribe
-  </button>
-)}
+const BACKEND = import.meta.env.VITE_BACKEND_URL;
 
 export default function Navbar() {
-  const location = useLocation();
-  const token = localStorage.getItem("bb_token");
+  const [subActive, setSubActive] = useState(false);
+  const [email, setEmail] = useState(null);
 
-  const navItems = [
-    { path: "/", label: "🏠 Home" },
-    { path: "/subscribe", label: "💳 Subscribe" },
-    { path: "/dashboard", label: "📊 Dashboard" },
-  ];
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
 
-  const handleLogout = () => {
-    localStorage.removeItem("bb_token");
-    window.location.href = "/";
-  };
+    fetch(`${BACKEND}/auth/me`, {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+      .then(res => {
+        if (!res.ok) throw new Error("not-auth");
+        return res.json();
+      })
+      .then(data => {
+        setSubActive(Boolean(data?.isSubscribed));
+        setEmail(data?.email || null);
+      })
+      .catch(() => {
+        setSubActive(false);
+        setEmail(null);
+      });
+  }, []);
+
+  function logout() {
+    try {
+      localStorage.removeItem("token");
+      localStorage.removeItem("loginExpiry");
+    } catch (e) {}
+    // also clear chrome storage if extension context sends message later
+    try { chrome?.storage?.local?.remove(["bb_token","loginExpiry"]); } catch(e){}
+    window.location.href = "/login";
+  }
 
   return (
-    <nav className="backdrop-blur-md bg-white/30 fixed top-0 left-0 w-full z-50 shadow-sm border-b border-white/20">
-      <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
-        
-        {/* Logo */}
-        <Link
-          to="/"
-          className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-blue-600"
-        >
-          🐂 BeingBulls
-        </Link>
+    <nav className="p-4 flex items-center justify-between bg-white shadow">
+      <div className="flex items-center gap-3">
+        <div className="text-2xl font-bold">🐂 BeingBulls</div>
+        <div className="text-sm text-gray-600">Realtime pattern scanner</div>
+      </div>
 
-        {/* Nav Links */}
-        <div className="space-x-4 hidden md:flex items-center">
-          {navItems.map((item) => (
-            <Link
-              key={item.path}
-              to={item.path}
-              className={`px-3 py-2 rounded-xl text-sm font-medium hover:bg-white/40 transition-all duration-150 ${
-                location.pathname === item.path ? "bg-white/50" : ""
-              }`}
-            >
-              {item.label}
-            </Link>
-          ))}
+      <div className="flex items-center gap-4">
+        {email && <div className="text-sm text-gray-700">👤 {email}</div>}
 
-          {token ? (
-            <button
-              onClick={handleLogout}
-              className="px-4 py-2 rounded-xl bg-red-500/80 hover:bg-red-500 text-white text-sm font-medium transition-all"
-            >
-              🚪 Logout
-            </button>
-          ) : (
-            <Link
-              to="/login"
-              className="px-4 py-2 rounded-xl bg-emerald-500/80 hover:bg-emerald-500 text-white text-sm font-medium transition-all"
-            >
-              🔑 Login
-            </Link>
-          )}
-        </div>
+        {!subActive ? (
+          <button
+            onClick={() => (window.location.href = "/subscribe")}
+            className="px-4 py-2 bg-indigo-600 text-white rounded"
+          >
+            💳 Subscribe
+          </button>
+        ) : (
+          <div className="text-sm text-green-600 font-semibold">✅ Subscribed</div>
+        )}
+
+        {email ? (
+          <button onClick={logout} className="px-3 py-1 border rounded">Logout</button>
+        ) : (
+          <button onClick={() => (window.location.href = "/login")} className="px-3 py-1 border rounded">
+            Login
+          </button>
+        )}
       </div>
     </nav>
   );
 }
-
-
