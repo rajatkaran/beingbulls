@@ -1,50 +1,37 @@
-import React from "react";
+// website/components/HistoryTable.jsx
+import React, { useEffect, useState } from "react";
+const BACKEND = import.meta.env.VITE_BACKEND_URL;
 
-const HistoryTable = ({ history }) => {
+export default function HistoryTable({ limit = 10 }){
+  const [rows, setRows] = useState([]);
+  useEffect(()=>{
+    const token = localStorage.getItem("bb_token") || localStorage.getItem("token");
+    if(!token) return;
+    fetch(`${BACKEND}/scan/history`, { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.json())
+      .then(d => setRows(d.history || []))
+      .catch(()=>{});
+  },[]);
+
   return (
-    <div className="bg-white/20 backdrop-blur-sm p-4 rounded-2xl shadow-md overflow-x-auto mt-6">
-      <h2 className="text-xl font-semibold mb-4 text-white">📜 Scan History</h2>
-      <table className="min-w-full border border-white/20 rounded-xl overflow-hidden">
-        <thead className="bg-white/10 text-white text-sm">
-          <tr>
-            <th className="px-4 py-2 text-left">Date</th>
-            <th className="px-4 py-2 text-left">Pattern</th>
-            <th className="px-4 py-2 text-left">Timeframe</th>
-            <th className="px-4 py-2 text-left">Result</th>
-          </tr>
+    <div className="glass p-3">
+      <table className="w-full text-sm">
+        <thead className="text-left text-[#9fb0c0]">
+          <tr><th>Date</th><th>Pattern</th><th>EMA</th><th>Confidence</th></tr>
         </thead>
-        <tbody className="text-sm text-white/90">
-          {history && history.length > 0 ? (
-            history.map((item, index) => (
-              <tr
-                key={index}
-                className={`${
-                  index % 2 === 0 ? "bg-white/5" : "bg-white/10"
-                } hover:bg-white/20 transition duration-150`}
-              >
-                <td className="px-4 py-2">{item.date || "N/A"}</td>
-                <td className="px-4 py-2">{item.pattern || "N/A"}</td>
-                <td className="px-4 py-2">{item.timeframe || "N/A"}</td>
-                <td className="px-4 py-2">
-                  {item.result ? (
-                    <span className="text-green-400 font-medium">✔ Success</span>
-                  ) : (
-                    <span className="text-red-400 font-medium">✖ Failed</span>
-                  )}
-                </td>
+        <tbody>
+          {rows.length === 0 ? <tr><td colSpan="4" className="py-3">No scans yet</td></tr> :
+            rows.slice(0,limit).map((r,i)=>(
+              <tr key={i} className="border-t border-transparent">
+                <td>{new Date(r.timestamp).toLocaleString()}</td>
+                <td>{r.pattern || "-"}</td>
+                <td>{r.emaConfirmed ? "✅" : "❌"}</td>
+                <td>{Math.round(r.confidence || 0)}%</td>
               </tr>
             ))
-          ) : (
-            <tr>
-              <td colSpan="4" className="text-center px-4 py-4 text-white/70">
-                No scan history available.
-              </td>
-            </tr>
-          )}
+          }
         </tbody>
       </table>
     </div>
   );
-};
-
-export default HistoryTable;
+}
