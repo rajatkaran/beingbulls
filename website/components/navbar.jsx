@@ -1,5 +1,25 @@
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
+const [subActive, setSubActive] = useState(false);
+
+useEffect(() => {
+  const token = localStorage.getItem("token");
+  if (!token) return;
+
+  fetch(`${BACKEND}/auth/me`, {
+    headers: { Authorization: `Bearer ${token}` }
+  })
+    .then(r => r.json())
+    .then(d => setSubActive(d?.isSubscribed || false));
+}, []);
+
+...
+
+{!subActive && (
+  <button onClick={() => (window.location.href = "/subscribe")}>
+    💳 Subscribe
+  </button>
+)}
 
 export default function Navbar() {
   const location = useLocation();
@@ -62,4 +82,5 @@ export default function Navbar() {
     </nav>
   );
 }
+
 
