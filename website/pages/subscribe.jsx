@@ -1,5 +1,21 @@
 // website/pages/subscribe.jsx
 import React, { useEffect, useState } from "react";
+useEffect(() => {
+  const token = localStorage.getItem("token");
+  if (!token) return (window.location.href = "/login");
+
+  fetch(`${BACKEND}/auth/me`, {
+    headers: { Authorization: `Bearer ${token}` }
+  })
+    .then(res => res.json())
+    .then(data => {
+      if (data?.isSubscribed) {
+        alert("🎉 You already have an active subscription!");
+        window.location.href = "/dashboard";
+      }
+    });
+}, []);
+
 
 const BACKEND = import.meta.env.VITE_BACKEND_URL;
 const RZP_KEY = import.meta.env.VITE_RAZORPAY_KEY_ID;
@@ -127,3 +143,4 @@ export default function SubscribePage() {
     </div>
   );
 }
+
