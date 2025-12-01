@@ -3,12 +3,198 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>BeingBulls — Realtime Pattern Scanner 🐂</title>
-    <meta name="description" content="BeingBulls — scan live charts, detect 53+ patterns, overlays, Razorpay subscriptions. Realtime, browser-native." />
-    <link rel="icon" href="/bull.png" />
+    <title>BeingBulls — AI Chart Pattern Scanner 🐂</title>
+    <meta name="description" content="BeingBulls — scan live charts, detect 53+ patterns, overlays, Razorpay subscriptions. Realtime, browser-native, trustable." />
+
+    <!-- simple google fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+
+    <style>
+      :root{
+        --bg1: #0f1724;
+        --glass: rgba(255,255,255,0.06);
+        --accent: linear-gradient(90deg,#00f2fe,#7b61ff);
+        --card: rgba(255,255,255,0.03);
+        --muted: #b8c1c7;
+      }
+      html,body{height:100%;margin:0;font-family:Inter,system-ui,Arial;background:linear-gradient(135deg,#f6fbff 0%, #eefaf6 100%);}
+      .container{max-width:1200px;margin:0 auto;padding:28px;}
+      header{display:flex;align-items:center;justify-content:space-between;gap:16px;}
+      .brand{display:flex;align-items:center;gap:12px}
+      .logo { width:48px;height:48px;border-radius:10px;display:grid;place-items:center;background:linear-gradient(135deg,#7b61ff,#00f2fe);color:white;font-weight:800;font-size:22px;box-shadow:0 6px 30px rgba(59,130,246,0.08); }
+      nav a{margin-left:18px;text-decoration:none;color:#0b1220;font-weight:600}
+      .glass { background: var(--card); backdrop-filter: blur(8px); border-radius:14px; padding:18px; box-shadow: 0 8px 30px rgba(2,6,23,0.06); }
+
+      /* HERO */
+      .hero{display:flex;gap:28px;align-items:center;padding:48px 0;}
+      .hero-left{flex:1}
+      .hero-title{font-size:38px;margin:0;line-height:1.05}
+      .hero-sub{color:var(--muted);margin-top:12px;font-size:16px}
+      .cta{display:flex;gap:12px;margin-top:20px}
+      .btn{
+        padding:12px 18px;border-radius:12px;border:0;font-weight:700;cursor:pointer;
+      }
+      .btn-primary{background:var(--accent);color:white;box-shadow:0 8px 28px rgba(123,97,255,0.14)}
+      .btn-outline{background:transparent;border:1px solid rgba(12,12,13,0.06);color:#0b1320}
+
+      /* right card bull preview */
+      .hero-right{flex:1;display:flex;justify-content:center}
+      .demo-card{width:100%;max-width:520px;border-radius:16px;padding:18px;background:linear-gradient(180deg, rgba(255,255,255,0.92), rgba(255,255,255,0.88));box-shadow:0 20px 60px rgba(7,10,25,0.06);border:1px solid rgba(0,0,0,0.04)}
+
+      .bull-anim{height:220px;position:relative;overflow:hidden;border-radius:10px;background:linear-gradient(90deg,#0b1220, #062237);display:flex;align-items:center;justify-content:flex-start;padding:18px;color:white}
+      .bull-emoji{font-size:56px;position:absolute;left:-20%;top:40%;animation:bullMove 6s linear infinite}
+      @keyframes bullMove{0%{transform:translateX(0) translateY(0) rotate(0);opacity:0}10%{opacity:1}50%{transform:translateX(120%) translateY(-6px) rotate(-6deg)}100%{transform:translateX(220%) translateY(0) rotate(2deg);opacity:0}}
+      .demo-caption{margin-top:12px;color:#0b1220;font-weight:600}
+
+      /* FEATURES GRID */
+      .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:28px}
+      .feature{padding:18px;border-radius:12px;background:var(--glass);border:1px solid rgba(255,255,255,0.03)}
+      .feature h4{margin:0 0 8px 0}
+      .small{font-size:13px;color:var(--muted)}
+
+      /* Pricing */
+      .pricing{display:flex;gap:16px;margin-top:28px}
+      .plan{flex:1;padding:18px;border-radius:14px;background:linear-gradient(180deg, rgba(255,255,255,0.96), rgba(255,255,255,0.9));box-shadow:0 10px 30px rgba(2,6,23,0.04);border:1px solid rgba(0,0,0,0.04)}
+      .plan h3{margin:0;font-size:18px}
+      .price{font-size:28px;margin-top:8px}
+      .plan button{margin-top:14px}
+
+      footer{margin-top:48px;padding:24px 0;color:var(--muted);display:flex;justify-content:space-between;align-items:center}
+
+      /* responsive */
+      @media (max-width:900px){
+        .hero{flex-direction:column}
+        .grid{grid-template-columns:repeat(1,1fr)}
+        nav a{display:none}
+      }
+    </style>
   </head>
-  <body class="bg-[#071022] text-white">
-    <div id="root"></div>
+
+  <body>
+    <div class="container">
+      <header>
+        <div class="brand">
+          <div class="logo">🐂</div>
+          <div>
+            <div style="font-weight:800;font-size:18px">BeingBulls</div>
+            <div style="font-size:12px;color:var(--muted)">Realtime chart pattern scanner</div>
+          </div>
+        </div>
+
+        <nav>
+          <a href="/">Home</a>
+          <a href="/#features">Features</a>
+          <a href="/subscribe">Pricing</a>
+          <a href="/login">Login</a>
+        </nav>
+      </header>
+
+      <!-- HERO -->
+      <section class="hero">
+        <div class="hero-left">
+          <h1 class="hero-title">🐂 Scan live charts — detect 53+ patterns in realtime</h1>
+          <p class="hero-sub">Overlay smart, beautiful indicators directly on TradingView or any chart in your browser. No screenshot upload. Instant scanning, visual overlays, and a history dashboard — try now.</p>
+
+          <div class="cta">
+            <button class="btn btn-primary" onclick="location.href='/subscribe'">⚡ Get Started — ₹59/week</button>
+            <button class="btn btn-outline" onclick="location.href='/login'">🔒 Login / Signup</button>
+          </div>
+
+          <div class="small" style="margin-top:12px">✅ 53 pattern engine · ✅ EMA confirmation · ✅ Chrome extension · ✅ Razorpay payments</div>
+
+          <div style="margin-top:20px" class="glass">
+            <strong>Why BeingBulls?</strong>
+            <div class="small" style="margin-top:8px">📈 Built for retail traders • Fast live scanning • Easy overlays • Trustable rules-based AI + EMA confirmation for higher confidence.</div>
+          </div>
+        </div>
+
+        <div class="hero-right">
+          <div class="demo-card">
+            <div class="bull-anim">
+              <div class="bull-emoji">🐂</div>
+              <!-- Simulated chart placeholders -->
+              <svg width="100%" height="180" viewBox="0 0 100 40" preserveAspectRatio="none">
+                <polyline points="0,30 10,25 20,28 30,22 40,18 50,10 60,14 70,8 80,12 90,6 100,10"
+                  style="fill:none;stroke:#4ade80;stroke-width:2;opacity:0.9"></polyline>
+              </svg>
+            </div>
+            <div class="demo-caption">Live overlays show patterns & confidence — click Scan in extension to try.</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- FEATURES -->
+      <section id="features">
+        <h3 style="margin-top:28px">✨ Features</h3>
+        <div class="grid">
+          <div class="feature">
+            <h4>🔍 Live OHLC Scraping</h4>
+            <div class="small">Extracts candles directly from TradingView & other charting apps on screen — no uploads.</div>
+          </div>
+          <div class="feature">
+            <h4>🤖 53 Pattern Detector</h4>
+            <div class="small">Rule-based engine covering major candlestick & chart patterns with confidence scores.</div>
+          </div>
+          <div class="feature">
+            <h4>🎨 Fancy Overlays</h4>
+            <div class="small">Glassmorphism overlay boxes, compact labels, color-coded trend markers.</div>
+          </div>
+
+          <div class="feature">
+            <h4>📜 Scan History</h4>
+            <div class="small">All scans saved to your dashboard — view timestamps, EMA confirmation & confidence.</div>
+          </div>
+          <div class="feature">
+            <h4>💳 Razorpay Subscriptions</h4>
+            <div class="small">Weekly & monthly plans with secure verification and automatic expiry handling.</div>
+          </div>
+          <div class="feature">
+            <h4>🔐 OTP Login</h4>
+            <div class="small">Email OTP-based login (easy & secure). Admin bypass for testing.</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- PRICING -->
+      <section style="margin-top:30px;">
+        <h3>💳 Pricing</h3>
+        <div class="pricing">
+          <div class="plan">
+            <h3>⚡ Weekly Plan</h3>
+            <div class="price">₹59 <span style="font-size:14px;color:var(--muted)">/ 7 days</span></div>
+            <div class="small">Try it — minimal entry. Auto-renew off.</div>
+            <button class="btn btn-primary" onclick="location.href='/subscribe'">Buy Weekly</button>
+          </div>
+          <div class="plan">
+            <h3>🔥 Monthly Plan</h3>
+            <div class="price">₹219 <span style="font-size:14px;color:var(--muted)">/ 28 days</span></div>
+            <div class="small">Best value for active users.</div>
+            <button class="btn btn-primary" onclick="location.href='/subscribe'">Buy Monthly</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- TRUST & CTA -->
+      <section style="margin-top:32px;display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap">
+        <div style="display:flex;gap:18px;align-items:center">
+          <div class="glass" style="padding:12px;border-radius:10px">✅ 53 Patterns</div>
+          <div class="glass" style="padding:12px;border-radius:10px">✅ 24/7 Scans</div>
+          <div class="glass" style="padding:12px;border-radius:10px">✅ Secure Payments</div>
+        </div>
+        <div>
+          <button class="btn btn-primary" onclick="location.href='/subscribe'">Start Free Trial →</button>
+        </div>
+      </section>
+
+      <footer>
+        <div>© BeingBulls — Built with ❤️ • <span style="opacity:0.8">Privacy-friendly</span></div>
+        <div style="opacity:0.8">Support: <a href="mailto:support@beingbulls.in">support@beingbulls.in</a></div>
+      </footer>
+    </div>
+
+    <!-- React mount (keeps compatibility if app.jsx renders SPA later) -->
+    <div id="root" style="display:none"></div>
     <script type="module" src="/src/app.jsx"></script>
   </body>
 </html>
