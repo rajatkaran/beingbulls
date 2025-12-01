@@ -1,61 +1,44 @@
 <!DOCTYPE html>
 <html>
-<head>
-  <meta charset="UTF-8" />
-  <title>🧠 BeingBulls</title>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="panel.css" />
-</head>
+  <head>
+    <link rel="stylesheet" href="panel.css" />
 
-<body>
-  <div class="container">
+    <style>
+      body { background:#0f0f0f; color:white; font-family:Inter, sans-serif; }
+      .card {
+        background:#1a1a1a;
+        padding:16px;
+        border-radius:12px;
+        margin-bottom:12px;
+        box-shadow:0 0 10px rgba(0,255,255,0.2);
+      }
+      table { width:100%; font-size:12px; }
+      table tr { border-bottom:1px solid #333; }
+      td { padding:6px; }
+    </style>
+  </head>
 
-    <!-- 🔐 Login Section -->
-    <div id="login-section" class="glass-card">
-      <h2>🔐 Login to BeingBulls</h2>
-      <input type="email" id="email" placeholder="📧 Email" />
-      <input type="password" id="password" placeholder="🔑 Password" />
-      <button id="login-btn">🚀 Login</button>
-      <p>🆕 New here? <a href="#" id="signup-link">Sign up</a></p>
+  <body>
+    <div id="login-section" class="card">
+      <h2>🔐 Login</h2>
+      <input id="email" placeholder="Email" />
+      <button id="send-otp-btn">📩 Send OTP</button>
+      <input id="otp" placeholder="OTP" />
+      <button id="verify-otp-btn">✅ Verify</button>
     </div>
 
-    <!-- 📈 Scanner Section -->
-    <div id="scanner-section" class="glass-card" style="display: none;">
-      <h2>📊 Chart Scanner</h2>
-
-      <label>
-        <input type="checkbox" id="feedback-toggle" /> 🗣️ Enable Feedback
-      </label>
-
+    <div id="scanner-section" class="card" style="display:none;">
+      <h3>📡 Live Chart Scanner</h3>
+      <label><input type="checkbox" id="feedback-toggle"/> Send Feedback Data</label>
       <button id="scan-btn">🔍 Scan Now</button>
+      <button id="logout-btn">🚪 Logout</button>
 
-      <h3>📜 Previous Scans</h3>
-      <table id="scan-history" border="1" cellpadding="6">
-        <thead>
-          <tr>
-            <th>🕒 Timestamp</th>
-            <th>📉 Pattern</th>
-            <th>✅ EMA-5</th>
-            <th>📊 Confidence</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr><td colspan="4">No scans yet...</td></tr>
-        </tbody>
+      <h4>📜 Scan History</h4>
+      <table id="scan-history">
+        <tbody><tr><td>Loading...</td></tr></tbody>
       </table>
-      <label style="display: flex; align-items: center; gap: 8px; margin-top: 10px;">
-         <input type="checkbox" id="remember-me" />
-           🧠 Remember Me (stay logged in)
-      </label>
-
-       <button id="logout-btn">🚪 Logout</button>
-
-
-
     </div>
 
-  </div>
-
-  <script src="panel.js"></script>
-</body>
+    <script src="panel.js"></script>
+  </body>
 </html>
