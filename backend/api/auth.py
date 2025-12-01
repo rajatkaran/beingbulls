@@ -81,3 +81,74 @@ def me(authorization: str = Header(None)):
         "isSubscribed": bool(user.get("isSubscribed", False)),
         "subscription_expiry": user.get("subscription_expiry")
     }
+
+# ---------------------------
+#   /auth/me  → return user profile
+# ---------------------------
+from fastapi import Header
+from database.mongo import users
+
+def decode_token(token: str):
+    try:
+        payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+        return payload.get("sub")
+    except:
+        return None
+
+
+@router.get("/me")
+def get_me(authorization: str = Header(None)):
+    """
+    Returns:
+    {
+      "email": "...",
+      "isSubscribed": true/false,
+      "subscription_expiry": "...",
+      "plan": "weekly/monthly",
+      "remaining_days": int
+    }
+    """
+
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Authorization required")
+
+    parts = authorization.split()
+    token = parts[1] if len(parts) > 1 else parts[0]
+    email = decode_token(token)
+
+    if not email:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    user = users.find_one({"email": email})
+
+    if not user:
+        # Auto-create user document if not exists (first login)
+        users.insert_one({
+            "email": email,
+            "isSubscribed": False,
+            "subscription_expiry": None,
+            "plan": None
+        })
+        user = users.find_one({"email": email})
+
+    expiry = user.get("subscription_expiry")
+    is_sub = False
+    remaining_days = 0
+
+    if expiry:
+        try:
+            expiry_dt = datetime.fromisoformat(expiry)
+            remaining = (expiry_dt - datetime.utcnow()).days
+            if remaining > 0:
+                remaining_days = remaining
+                is_sub = True
+        except:
+            pass
+
+    return {
+        "email": email,
+        "isSubscribed": is_sub,
+        "subscription_expiry": expiry,
+        "plan": user.get("plan"),
+        "remaining_days": remaining_days
+    }
