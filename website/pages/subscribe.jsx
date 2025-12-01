@@ -1,105 +1,129 @@
-// ✅ pages/subscribe.jsx
-import React from "react";
-import axios from "axios";
+// website/pages/subscribe.jsx
+import React, { useEffect, useState } from "react";
 
-const Subscribe = () => {
-  const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
-  const RAZORPAY_KEY_ID = import.meta.env.VITE_RAZORPAY_KEY_ID;
-  const token = localStorage.getItem("token");
+const BACKEND = import.meta.env.VITE_BACKEND_URL;
+const RZP_KEY = import.meta.env.VITE_RAZORPAY_KEY_ID;
 
-  const plans = [
-    { id: "weekly", name: "Weekly Plan", price: 59, period: "7 Days" },
-    { id: "monthly", name: "Monthly Plan", price: 219, period: "28 Days" },
-  ];
+export default function SubscribePage() {
+  const [loading, setLoading] = useState(false);
+  const token = localStorage.getItem("bb_token");
 
-  const loadRazorpay = (src) => {
-    return new Promise((resolve) => {
-      const script = document.createElement("script");
-      script.src = src;
-      script.onload = () => resolve(true);
-      script.onerror = () => resolve(false);
-      document.body.appendChild(script);
+  if (!token) {
+    alert("🔒 Please login first!");
+    window.location.href = "/login";
+  }
+
+  async function createOrder(amount) {
+    const res = await fetch(`${BACKEND}/payment/create-order`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ amount }),
     });
-  };
 
-  const subscribe = async (plan) => {
-    if (!token) {
-      alert("⚠️ Please login first");
-      window.location.href = "/login";
-      return;
+    if (!res.ok) {
+      console.error(await res.text());
+      throw new Error("Order create failed");
     }
 
-    const res = await loadRazorpay("https://checkout.razorpay.com/v1/checkout.js");
-    if (!res) {
-      alert("❌ Failed to load Razorpay SDK");
-      return;
-    }
+    return res.json();
+  }
 
+  async function startPayment(plan) {
+    const amount = plan === "weekly" ? 5900 : 21900; // paise
+    setLoading(true);
     try {
-      // 🔹 Call backend to create an order
-      const orderRes = await axios.post(
-        `${BACKEND_URL}/create-order`,
-        { planId: plan.id, amount: plan.price * 100 }, // in paisa
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-
-      const { id: order_id, amount, currency } = orderRes.data;
+      const orderData = await createOrder(amount);
 
       const options = {
-        key: RAZORPAY_KEY_ID,
-        amount,
-        currency,
+        key: RZP_KEY,
+        amount: orderData.amount,
+        currency: "INR",
         name: "BeingBulls",
-        description: plan.name,
-        order_id,
-        handler: function (response) {
-          alert("✅ Payment successful! Subscription activated.");
-          window.location.href = "/dashboard";
-        },
-        prefill: {
-          email: "user@example.com", // optional
-        },
+        description: `${plan.toUpperCase()} Subscription`,
+        order_id: orderData.order_id,
         theme: {
-          color: "#6366f1",
+          color: "#00f2fe",
+        },
+        handler: async function (response) {
+          const verifyBody = {
+            order_id: response.razorpay_order_id,
+            payment_id: response.razorpay_payment_id,
+            signature: response.razorpay_signature,
+            plan: plan,
+          };
+
+          const res = await fetch(`${BACKEND}/payment/verify`, {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(verifyBody),
+          });
+
+          if (!res.ok) {
+            alert("❌ Payment verification failed");
+            console.error(await res.text());
+            return;
+          }
+
+          alert("🎉 Subscription Activated!");
+          window.location.href = "/dashboard";
         },
       };
 
-      const paymentObject = new window.Razorpay(options);
-      paymentObject.open();
-    } catch (err) {
-      console.error(err);
-      alert("❌ Payment failed");
+      const rzp = new window.Razorpay(options);
+      rzp.open();
+    } catch (e) {
+      console.error(e);
+      alert("⚠️ Something went wrong while starting payment");
+    } finally {
+      setLoading(false);
     }
-  };
+  }
+
+  useEffect(() => {
+    if (!window.Razorpay) {
+      const script = document.createElement("script");
+      script.src = "https://checkout.razorpay.com/v1/checkout.js";
+      document.body.appendChild(script);
+    }
+  }, []);
 
   return (
-    <div className="pt-24 px-6 bg-gradient-to-br from-pink-50 via-purple-50 to-blue-50 min-h-screen">
-      <h1 className="text-4xl font-bold text-center mb-10 bg-clip-text text-transparent bg-gradient-to-r from-pink-600 to-purple-600">
-        💳 Choose Your Plan
-      </h1>
+    <div className="max-w-xl mx-auto p-6">
+      <h2 className="text-3xl font-bold mb-6">💳 Choose Your Plan</h2>
 
-      <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-        {plans.map((plan) => (
-          <div
-            key={plan.id}
-            className="bg-white/40 backdrop-blur-xl rounded-2xl shadow-lg p-6 text-center hover:shadow-xl transition"
+      <div className="grid gap-6">
+        {/* WEEKLY */}
+        <div className="p-4 border rounded-xl shadow bg-white">
+          <h3 className="text-xl font-bold mb-2">⚡ Weekly Plan</h3>
+          <p className="text-gray-600 mb-4">₹59 / 7 days</p>
+          <button
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg"
+            disabled={loading}
+            onClick={() => startPayment("weekly")}
           >
-            <h2 className="text-2xl font-semibold mb-2">{plan.name}</h2>
-            <p className="text-gray-600 mb-4">⏳ {plan.period}</p>
-            <p className="text-3xl font-bold text-purple-600 mb-6">
-              ₹{plan.price}
-            </p>
-            <button
-              onClick={() => subscribe(plan)}
-              className="px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white font-semibold rounded-2xl shadow-md hover:scale-105 transition"
-            >
-              🚀 Subscribe Now
-            </button>
-          </div>
-        ))}
+            {loading ? "⏳ Please wait..." : "🟦 Buy Weekly"}
+          </button>
+        </div>
+
+        {/* MONTHLY */}
+        <div className="p-4 border rounded-xl shadow bg-white">
+          <h3 className="text-xl font-bold mb-2">🔥 Monthly Plan</h3>
+          <p className="text-gray-600 mb-4">₹219 / 28 days</p>
+          <button
+            className="w-full bg-green-600 hover:bg-green-700 text-white py-2 rounded-lg"
+            disabled={loading}
+            onClick={() => startPayment("monthly")}
+          >
+            {loading ? "⏳ Please wait..." : "🟩 Buy Monthly"}
+          </button>
+        </div>
       </div>
     </div>
   );
-};
-
-export default Subscribe;
+}
