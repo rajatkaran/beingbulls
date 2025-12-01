@@ -1,6 +1,22 @@
 // website/pages/dashboard.jsx
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+useEffect(() => {
+  const token = localStorage.getItem("token");
+  if (!token) return (window.location.href = "/login");
+
+  fetch(`${BACKEND}/auth/me`, {
+    headers: { Authorization: `Bearer ${token}` }
+  })
+    .then(res => res.json())
+    .then(data => {
+      if (!data?.isSubscribed) {
+        alert("⚠️ Your subscription is inactive. Please subscribe.");
+        window.location.href = "/subscribe";
+      }
+    });
+}, []);
+
 
 const BACKEND = import.meta.env.VITE_BACKEND_URL;
 
@@ -147,3 +163,4 @@ export default function Dashboard() {
     </div>
   );
 }
+
