@@ -7,11 +7,19 @@ import os
 import hmac
 import hashlib
 import json
+import logging
 
 from jose import jwt, JWTError
 from config import RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET, JWT_SECRET
 from database.mongo import users, get_db
 
+# optional: razorpay client (lazy init)
+try:
+    from razorpay import Client as RazorpayClient
+except Exception:
+    RazorpayClient = None
+
+logger = logging.getLogger("beingbulls.payment")
 router = APIRouter()
 
 # --- Request model used by frontend to verify payment after checkout
@@ -20,8 +28,12 @@ class PaymentVerifyRequest(BaseModel):
     payment_id: str
     signature: str
     plan: Optional[str] = None  # "weekly" or "monthly" (frontend should send)
-    # optional: custom duration days if you want flexible plans
-    days: Optional[int] = None
+    days: Optional[int] = None  # optional custom days
+
+
+class OrderCreate(BaseModel):
+    amount: int  # amount in paise
+
 
 # --- helper to decode JWT and get user email
 def verify_token_value(token: str) -> Optional[str]:
@@ -31,9 +43,9 @@ def verify_token_value(token: str) -> Optional[str]:
     except JWTError:
         return None
 
+
 # --- helper: calculate expiry based on plan
 def compute_expiry(plan: Optional[str], custom_days: Optional[int] = None) -> datetime:
-    # use your canonical plan durations here
     if custom_days and isinstance(custom_days, int) and custom_days > 0:
         days = custom_days
     else:
@@ -46,11 +58,11 @@ def compute_expiry(plan: Optional[str], custom_days: Optional[int] = None) -> da
             elif "month" in plan_l:
                 days = 28
             else:
-                # default fallback
                 days = 7
     return datetime.utcnow() + timedelta(days=days)
 
-# --- verify razorpay signature helper
+
+# --- verify razorpay signature helper (for frontend verify)
 def verify_razorpay_signature(order_id: str, payment_id: str, signature: str) -> bool:
     try:
         payload = f"{order_id}|{payment_id}".encode("utf-8")
@@ -58,8 +70,18 @@ def verify_razorpay_signature(order_id: str, payment_id: str, signature: str) ->
         expected = hmac.new(secret, payload, hashlib.sha256).hexdigest()
         return hmac.compare_digest(expected, signature)
     except Exception as e:
-        print("[payment] signature verify error:", e)
+        logger.exception("[payment] signature verify error")
         return False
+
+
+# --- helper: get razorpay client (lazy)
+def get_razorpay_client():
+    if not RazorpayClient:
+        raise RuntimeError("razorpay python package not installed")
+    if not (RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET):
+        raise RuntimeError("RAZORPAY_KEY_ID / RAZORPAY_KEY_SECRET not set")
+    return RazorpayClient(auth=(RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET))
+
 
 # --- POST /payment/verify : called by frontend after checkout to confirm payment and update subscription
 @router.post("/verify")
@@ -105,7 +127,7 @@ async def verify_payment(payload: PaymentVerifyRequest, authorization: Optional[
             upsert=True
         )
     except Exception as e:
-        print("[payment] payments collection write failed:", e)
+        logger.exception("[payment] payments collection write failed")
 
     # Update user subscription
     try:
@@ -120,7 +142,7 @@ async def verify_payment(payload: PaymentVerifyRequest, authorization: Optional[
             upsert=True
         )
     except Exception as e:
-        print("[payment] users update failed:", e)
+        logger.exception("[payment] users update failed")
         raise HTTPException(status_code=500, detail="Failed to update subscription")
 
     return {"status": "ok", "email": user_email, "subscription_expiry": expiry_dt.isoformat()}
@@ -143,19 +165,19 @@ async def razorpay_webhook(request: Request):
         secret = (RAZORPAY_KEY_SECRET or "").encode("utf-8")
         expected = hmac.new(secret, text_body.encode("utf-8"), hashlib.sha256).hexdigest()
         if not signature_header or not hmac.compare_digest(expected, signature_header):
-            print("[payment:webhook] signature mismatch")
+            logger.warning("[payment:webhook] signature mismatch")
             raise HTTPException(status_code=400, detail="Invalid signature")
     except HTTPException:
         raise
     except Exception as e:
-        print("[payment:webhook] signature verify exception:", e)
+        logger.exception("[payment:webhook] signature verify exception")
         raise HTTPException(status_code=400, detail="Signature error")
 
     # parse JSON payload
     try:
         payload = json.loads(text_body)
     except Exception as e:
-        print("[payment:webhook] json parse error:", e)
+        logger.exception("[payment:webhook] json parse error")
         payload = {"raw": text_body}
 
     # store webhook event
@@ -167,22 +189,21 @@ async def razorpay_webhook(request: Request):
             "payload": payload
         })
     except Exception as e:
-        print("[payment:webhook] webhook store failed:", e)
+        logger.exception("[payment:webhook] webhook store failed")
 
     # If it's a payment captured event, attempt to reconcile
     try:
         event = payload.get("event") or ""
-        if event == "payment.captured" or event == "order.paid":
+        if event in ("payment.captured", "order.paid", "payment.authorized"):
             # navigate payload to find payment id / order id
-            ent = payload.get("payload", {}).get("payment", {}).get("entity") or payload.get("payload", {}).get("order", {}).get("entity")
+            ent = (payload.get("payload", {}).get("payment", {}).get("entity")
+                   or payload.get("payload", {}).get("order", {}).get("entity"))
             if ent:
-                order_id = ent.get("order_id") or ent.get("id") or ent.get("order_id")
-                payment_id = ent.get("id")
-                # find payment record (created by verify endpoint or created earlier)
+                order_id = ent.get("order_id") or ent.get("id")
+                payment_id = ent.get("id") or ent.get("payment_id")
                 payments = db["payments"]
                 rec = payments.find_one({"order_id": order_id})
                 if rec and rec.get("email"):
-                    # compute expiry based on plan stored in rec
                     plan = rec.get("plan")
                     expiry_dt = compute_expiry(plan)
                     users.update_one({"email": rec["email"]}, {"$set": {
@@ -192,6 +213,57 @@ async def razorpay_webhook(request: Request):
                     }})
                     payments.update_one({"order_id": order_id}, {"$set": {"status": "paid", "payment_id": payment_id}})
     except Exception as e:
-        print("[payment:webhook] reconcile failed:", e)
+        logger.exception("[payment:webhook] reconcile failed")
 
     return {"status": "ok"}
+
+
+# --- NEW: POST /payment/create-order : create Razorpay order (call from frontend)
+@router.post("/create-order")
+def create_order(payload: OrderCreate, authorization: Optional[str] = Header(None)):
+    """
+    Creates a Razorpay order server-side to avoid exposing secret logic in frontend.
+    Body: { amount: int }  # in paise
+    Returns: { order_id, amount }
+    """
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Auth required")
+
+    token = authorization.split()[1] if len(authorization.split()) > 1 else authorization
+    user_email = verify_token_value(token)
+    if not user_email:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    # create razorpay client
+    try:
+        client = get_razorpay_client()
+    except Exception as e:
+        logger.exception("[payment:create-order] razorpay client init failed")
+        raise HTTPException(status_code=500, detail="Payment gateway not configured")
+
+    try:
+        order = client.order.create({
+            "amount": int(payload.amount),
+            "currency": "INR",
+            "payment_capture": 1,
+            "notes": {"email": user_email}
+        })
+        # store a minimal pending payment record
+        db = get_db()
+        payments = db["payments"]
+        payments.update_one(
+            {"order_id": order.get("id")},
+            {"$set": {
+                "order_id": order.get("id"),
+                "amount": payload.amount,
+                "currency": "INR",
+                "status": "created",
+                "email": user_email,
+                "created_at": datetime.utcnow()
+            }},
+            upsert=True
+        )
+        return {"order_id": order.get("id"), "amount": payload.amount}
+    except Exception as e:
+        logger.exception("[payment:create-order] order create failed")
+        raise HTTPException(status_code=500, detail="Order create failed")
