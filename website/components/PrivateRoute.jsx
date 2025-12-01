@@ -1,40 +1,37 @@
-// website/components/PrivateRoute.jsx
 import React, { useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
 
-const BACKEND = import.meta.env.VITE_BACKEND_URL || "https://beingbulls-backend.onrender.com";
+const BACKEND = import.meta.env.VITE_BACKEND_URL;
 
-export default function PrivateRoute({ children, requireSubscription = false }) {
+export default function PrivateRoute({ children }) {
   const [loading, setLoading] = useState(true);
   const [allowed, setAllowed] = useState(false);
 
   useEffect(() => {
-    (async () => {
-      const token = localStorage.getItem("bb_token");
-      if (!token) {
-        setAllowed(false);
-        setLoading(false);
-        return;
-      }
-      try {
-        const res = await fetch(`${BACKEND}/auth/me`, { headers: { Authorization: `Bearer ${token}` } });
-        if (!res.ok) throw new Error("Auth failed");
-        const j = await res.json();
-        if (requireSubscription) {
-          setAllowed(Boolean(j.isSubscribed));
-        } else {
-          setAllowed(true);
-        }
-      } catch (e) {
-        console.error("PrivateRoute auth error", e);
-        setAllowed(false);
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, [requireSubscription]);
+    const token = localStorage.getItem("token");
+    if (!token) {
+      setAllowed(false);
+      setLoading(false);
+      return;
+    }
 
-  if (loading) return <div className="p-6">⏳ Checking authentication...</div>;
-  if (!allowed) return <Navigate to="/login" replace />;
-  return children;
+    // Live backend check
+    fetch(`${BACKEND}/auth/me`, {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+      .then(res => res.json())
+      .then(data => {
+        if (data?.isSubscribed) {
+          setAllowed(true);
+        } else {
+          setAllowed(false);
+        }
+      })
+      .catch(() => setAllowed(false))
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) return <div className="text-center p-10">⏳ Checking subscription…</div>;
+
+  return allowed ? children : <Navigate to="/subscribe" />;
 }
