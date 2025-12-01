@@ -1,54 +1,3 @@
-//chrome.runtime.onMessage.addListener(async (msg) => {
-  //if (msg.type === "SCRAPE_CHART") {
-    //const ohlc = await getVisibleOHLCFromDOM();
-   // if (!ohlc || ohlc.length === 0) {
-      //alert("❌ Unable to detect live chart. Try on a different page.");
-     // return;
-    //}
-
-   // const res = await fetch("https://your-backend-url.com/scan", {
-      //method: "POST",
-      //headers: { "Content-Type": "application/json" },
-      //body: JSON.stringify({
-        //candles: ohlc,
-       // feedback: msg.feedback
-     // })
-    //});
-
-    //const data = await res.json();
-
-    //chrome.runtime.sendMessage({
-      //type: "SCAN_RESULT",
-      //pattern: data.pattern,
-      //confidence: data.confidence,
-      //trend: data.trend,
-     // ema5: data.ema
-    //});
-
-    //drawPatternOverlay(data.pattern, data.confidence, data.trend);
-  //}
-//});
-
-// ✨ Modular DOM-based OHLC extractor (works on any readable chart)
-//async function getVisibleOHLCFromDOM() {
-  //const rows = document.querySelectorAll("table tr");
-  //const candles = [];
-
-  //for (const row of rows) {
-    //const cols = row.querySelectorAll("td");
-    //if (cols.length >= 4) {
-      //const o = parseFloat(cols[0].innerText.replace(/,/g, ""));
-      //const h = parseFloat(cols[1].innerText.replace(/,/g, ""));
-      //const l = parseFloat(cols[2].innerText.replace(/,/g, ""));
-      //const c = parseFloat(cols[3].innerText.replace(/,/g, ""));
-      //if (!isNaN(o) && !isNaN(h) && !isNaN(l) && !isNaN(c)) {
-    //    candles.push({ open: o, high: h, low: l, close: c });
-  //    }
-//    }
-//  }
-
-//  return candles.slice(-30); // last 30 candles
-// }
 
 // extension/content.js (production)
 const BACKEND_URL = "https://beingbulls-backend.onrender.com"; // change if needed
@@ -194,4 +143,5 @@ function mapPatternsToPixels(patterns = [], candles = []) {
     return { ...p, x1, y1, x2, y2 };
   });
 }
+
 
